@@ -248,6 +248,7 @@ struct rvgpu_backend *init_backend_rvgpu(struct host_conn *servers)
 	struct rvgpu_scanout_arguments scanout_args[MAX_HOSTS] = { 0 };
 	struct rvgpu_backend *rvgpu_be;
 
+	printf("dl-debug[%s]\n", __func__);
 	rvgpu_be = calloc(1, sizeof(*rvgpu_be));
 	if (rvgpu_be == NULL) {
 		warnx("failed to allocate backend: %s", strerror(errno));
@@ -450,8 +451,10 @@ static void *resource_thread_func(void *param)
 		recv_fence_flags[i] = 0;
 	}
 
+	printf("dl-debug[%s]\n", __func__);
 	while (1) {
 		wait_resource_events(b, revents);
+		printf("dl-debug[%s], wait_resource_events out\n", __func__);
 		for (int i = 0; i < b->plugin_v1.ctx.scanout_num; i++) {
 			if (revents[i] & POLLIN) {
 				struct rvgpu_scanout *s =
@@ -460,7 +463,8 @@ static void *resource_thread_func(void *param)
 				ssize_t ret = s->plugin_v1.ops.rvgpu_recv_all(
 					s, RESOURCE, &msg, sizeof(msg));
 				assert(ret > 0);
-
+				
+				printf("dl-debug[%s], recv [%d]\n", __func__, msg.type);
 				if (msg.type == RVGPU_FENCE) {
 					recv_fence_flags[i] = 1;
 					uint32_t sync_fence_id = msg.fence_id;
@@ -502,6 +506,7 @@ struct gpu_device *gpu_device_init(int lo_fd, int efd, uint32_t cidx,
 	unsigned int i;
 	int ret;
 
+	printf("dl-debug[%s]\n", __func__);
 	struct virtio_lo_devinfo info = {
 		.nqueues = 2u,
 		.qinfo = q,
@@ -621,6 +626,7 @@ void gpu_device_config(struct gpu_device *g)
 					.config = (__u8 *)&c,
 					.len = sizeof(c) };
 
+	printf("dl-debug[%s]\n", __func__);
 	if (ioctl(g->lo_fd, VIRTIO_LO_GCONF, &cfg) != 0)
 		return;
 
@@ -1019,6 +1025,8 @@ static void gpu_device_serve_ctrl(struct gpu_device *g)
 			}
 
 			/* command is sane, parse it */
+			
+			printf("dl-debug[%s], recv type[%08x]\n", __func__, r.hdr.type);
 			switch (r.hdr.type) {
 			case VIRTIO_GPU_CMD_GET_DISPLAY_INFO:
 				memcpy(resp.rdi.pmodes, g->params->dpys,
@@ -1204,6 +1212,7 @@ static void gpu_device_serve_cursor(struct gpu_device *g)
 				}
 			}
 
+			printf("dl-debug[%s], recv type[%d]\n", __func__, r.hdr.type);
 			switch (r.hdr.type) {
 			case VIRTIO_GPU_CMD_UPDATE_CURSOR:
 				flush = true;
@@ -1239,6 +1248,7 @@ void gpu_device_serve(struct gpu_device *g)
 		err(1, "read failed from eventfd");
 	}
 
+	printf("dl-debug[%s], recv curl or cursor message\n", __func__);
 	gpu_device_serve_ctrl(g);
 	gpu_device_serve_cursor(g);
 }

@@ -263,6 +263,7 @@ struct input_device *input_device_init(struct rvgpu_backend *b)
 {
 	struct input_device *g;
 
+	printf("dl-debug[%s]\n", __func__);
 	g = calloc(1, sizeof(*g));
 	assert(g);
 
@@ -394,6 +395,7 @@ void input_device_serve(struct input_device *g,
 	struct input_event ie[UINT16_MAX];
 	size_t ev = 0;
 
+	printf("dl-debug[%s], hdr->dev[%d] \n", __func__, hdr->dev);
 	switch (hdr->dev) {
 	case RVGPU_INPUT_MOUSE:
 		fd = g->mouse;

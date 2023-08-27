@@ -58,6 +58,7 @@ static void *input_thread_func(void *param)
 	struct input_device *inpdev = (struct input_device *)param;
 	struct rvgpu_input_header hdr;
 
+	printf("dl-debug[%s]\n", __func__);
 	while (input_read(inpdev, &hdr, sizeof(hdr), &hdr.src) > 0) {
 		struct rvgpu_input_event uev[hdr.evnum];
 		ssize_t len = sizeof(uev[0]) * hdr.evnum;
@@ -248,7 +249,7 @@ int main(int argc, char **argv)
 		fprintf(oomFile, "%d", -1000);
 		fclose(oomFile);
 	}
-
+	// 初始化 virtio-lo 驱动
 	dev = gpu_device_init(lo_fd, epoll_fd, PROXY_GPU_CONFIG,
 			      PROXY_GPU_QUEUES, capset, &params, rvgpu_be);
 
@@ -263,6 +264,7 @@ int main(int argc, char **argv)
 		err(1, "input thread create");
 	}
 
+	printf("ready to epoll_wait\n");
 	/* do the main_cycle */
 	for (;;) {
 		int i, n;
@@ -270,7 +272,9 @@ int main(int argc, char **argv)
 
 		n = epoll_wait(epoll_fd, events, ARRAY_SIZE(events), -1);
 
+		printf("epoll_wait out\n");
 		for (i = 0; i < n; i++) {
+			printf("get event : %d\n", events[i].data.u32);
 			switch (events[i].data.u32) {
 			case PROXY_GPU_CONFIG:
 				gpu_device_config(dev);
@@ -284,6 +288,7 @@ int main(int argc, char **argv)
 		}
 	}
 
+	printf("exit process\n");
 	gpu_device_free(dev);
 	input_device_free(inpdev);
 

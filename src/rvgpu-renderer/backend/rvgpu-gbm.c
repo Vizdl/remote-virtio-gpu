@@ -217,7 +217,8 @@ static void rvgpu_gbm_free(struct rvgpu_egl_state *e)
 	rvgpu_in_free(g->in);
 	libinput_unref(g->libin);
 	udev_unref(g->udev);
-
+	
+	printf("dl-debug[%s]\n", __func__);
 	/* GBM deinit */
 	drmModeSetCrtc(g->gbm_fd, g->crtc->crtc_id, g->crtc->buffer_id,
 		       g->crtc->x, g->crtc->y, &g->connector, 1,
@@ -245,7 +246,8 @@ static void rvgpu_gbm_create_scanout(struct rvgpu_egl_state *e,
 				     struct rvgpu_scanout *s)
 {
 	struct rvgpu_gbm_state *g = to_gbm(e);
-
+	
+	printf("dl-debug[%s]\n", __func__);
 	if (g->scanout_id != VIRTIO_GPU_MAX_SCANOUTS)
 		errx(1, "GBM backend only supports one scanout for now!");
 
@@ -295,7 +297,8 @@ static void rvgpu_gbm_draw(struct rvgpu_egl_state *e, struct rvgpu_scanout *s,
 	unsigned int fb;
 	struct gbm_bo *bo;
 	unsigned int handle, stride;
-
+	
+	printf("dl-debug[%s]\n", __func__);
 	if (g->flip_pending)
 		return;
 
@@ -331,7 +334,8 @@ static size_t rvgpu_gbm_prepare_events(struct rvgpu_egl_state *e, void *ev,
 				       size_t max)
 {
 	struct rvgpu_gbm_state *g = to_gbm(e);
-
+	
+	printf("dl-debug[%s]\n", __func__);
 	assert(max >= 2);
 	struct pollfd *fds = (struct pollfd *)ev;
 
@@ -350,7 +354,8 @@ static void rvgpu_gbm_process_events(struct rvgpu_egl_state *e, const void *ev,
 
 	assert(n >= 2);
 	struct pollfd *fds = (struct pollfd *)ev;
-
+	
+	printf("dl-debug[%s]\n", __func__);
 	revents[0] = fds[0].revents;
 	revents[1] = fds[1].revents;
 	if (revents[0])
@@ -366,12 +371,14 @@ static const struct rvgpu_egl_callbacks gbm_callbacks = {
 	.free = rvgpu_gbm_free,
 	.draw = rvgpu_gbm_draw,
 	.create_scanout = rvgpu_gbm_create_scanout,
+	// 事件处理
 	.prepare_events = rvgpu_gbm_prepare_events,
 	.process_events = rvgpu_gbm_process_events,
 };
 
 static int open_restricted(const char *path, int flags, void *user_data)
 {
+	printf("dl-debug[%s]\n", __func__);
 	(void)user_data;
 	int fd = open(path, flags);
 
@@ -379,7 +386,8 @@ static int open_restricted(const char *path, int flags, void *user_data)
 }
 
 static void close_restricted(int fd, void *user_data)
-{
+{	
+	printf("dl-debug[%s]\n", __func__);
 	(void)user_data;
 	close(fd);
 }
@@ -458,7 +466,7 @@ struct rvgpu_egl_state *rvgpu_gbm_init(const char *device, const char *seat,
 	g->in = rvgpu_in_init(events_out);
 	g->udev = udev_new();
 	g->libin = libinput_udev_create_context(&interface, NULL, g->udev);
-	libinput_log_set_priority(g->libin, LIBINPUT_LOG_PRIORITY_INFO);
+	libinput_log_set_priority(g->libin, LIBINPUT_LOG_PRIORITY_DEBUG);
 	libinput_udev_assign_seat(g->libin, seat);
 	libinput_dispatch(g->libin);
 

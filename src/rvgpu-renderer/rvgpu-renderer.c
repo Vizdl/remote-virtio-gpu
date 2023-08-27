@@ -287,7 +287,7 @@ int main(int argc, char **argv)
 
 	input_stream = listen_conn(port_nr, &res_socket);
 	assert(input_stream);
-
+	// 子进程才会到这里来
 	if (carddev == NULL)
 		egl = rvgpu_wl_init(fullscreen, translucent, input_stream);
 	else

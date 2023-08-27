@@ -95,6 +95,7 @@ create_context(void *opaque, int scanout_idx,
 	(void)scanout_idx;
 	struct rvgpu_pr_state *state = (struct rvgpu_pr_state *)opaque;
 
+	printf("dl-debug[%s]\n", __func__);
 	return (virgl_renderer_gl_context)rvgpu_egl_create_context(
 		state->egl, params->major_ver, params->minor_ver,
 		params->shared);
@@ -104,6 +105,7 @@ static void destroy_context(void *opaque, virgl_renderer_gl_context ctx)
 {
 	struct rvgpu_pr_state *state = (struct rvgpu_pr_state *)opaque;
 
+	printf("dl-debug[%s]\n", __func__);
 	rvgpu_egl_destroy_context(state->egl, ctx);
 }
 
@@ -113,6 +115,7 @@ static int make_context_current(void *opaque, int scanout_id,
 	(void)scanout_id;
 	struct rvgpu_pr_state *state = (struct rvgpu_pr_state *)opaque;
 
+	printf("dl-debug[%s]\n", __func__);
 	return rvgpu_egl_make_context_current(state->egl, ctx);
 }
 
@@ -122,6 +125,7 @@ static void virgl_write_fence(void *opaque, uint32_t fence)
 	struct rvgpu_res_message_header msg = { .type = RVGPU_FENCE,
 						.fence_id = fence };
 
+	printf("dl-debug[%s]\n", __func__);
 	if (fence > state->fence_sent)
 		state->fence_sent = fence;
 
@@ -504,6 +508,7 @@ unsigned int rvgpu_pr_dispatch(struct rvgpu_pr_state *p)
 
 		virgl_renderer_force_ctx_0();
 		virgl_renderer_poll();
+		printf("dl-debug[%s], recv type[%08x]\n", __func__, r.hdr.type);
 		switch (r.hdr.type) {
 		case VIRTIO_GPU_CMD_CTX_CREATE:
 			virgl_renderer_context_create(r.hdr.ctx_id,
