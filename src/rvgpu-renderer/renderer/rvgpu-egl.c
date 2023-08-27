@@ -35,23 +35,21 @@ struct rect {
 
 void rvgpu_egl_init_context(struct rvgpu_egl_state *e)
 {
-	EGLint config_attribs[] = { EGL_SURFACE_TYPE,
-				    EGL_WINDOW_BIT,
-				    EGL_RED_SIZE,
-				    8,
-				    EGL_GREEN_SIZE,
-				    8,
-				    EGL_BLUE_SIZE,
-				    8,
-				    EGL_ALPHA_SIZE,
-				    8,
-				    EGL_CONFORMANT,
-				    EGL_OPENGL_ES2_BIT,
-				    EGL_RENDERABLE_TYPE,
-				    EGL_OPENGL_ES2_BIT,
-				    EGL_NONE };
-	EGLint ctxattr[] = { EGL_CONTEXT_MAJOR_VERSION_KHR, 3,
-			     EGL_CONTEXT_MINOR_VERSION_KHR, 0, EGL_NONE };
+	EGLint config_attribs[] = { 
+		EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
+		EGL_RED_SIZE, 8,
+		EGL_GREEN_SIZE, 8,
+		EGL_BLUE_SIZE, 8,
+		EGL_ALPHA_SIZE, 8,
+		EGL_CONFORMANT, EGL_OPENGL_ES2_BIT,
+		EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
+		EGL_NONE 
+	};
+	EGLint ctxattr[] = { 
+		EGL_CONTEXT_MAJOR_VERSION_KHR, 3,
+		EGL_CONTEXT_MINOR_VERSION_KHR, 0, 
+		EGL_NONE
+	};
 
 	EGLint n = 0;
 	EGLBoolean res;
@@ -61,10 +59,10 @@ void rvgpu_egl_init_context(struct rvgpu_egl_state *e)
 
 	eglBindAPI(EGL_OPENGL_ES_API);
 	eglChooseConfig(e->dpy, config_attribs, &e->config, 1, &n);
+	assert(e->config != NULL);
 	assert(n == 1);
 
-	e->context =
-		eglCreateContext(e->dpy, e->config, EGL_NO_CONTEXT, ctxattr);
+	e->context = eglCreateContext(e->dpy, e->config, EGL_NO_CONTEXT, ctxattr);
 	assert(e->context);
 
 	LIST_INIT(&e->vscanouts);

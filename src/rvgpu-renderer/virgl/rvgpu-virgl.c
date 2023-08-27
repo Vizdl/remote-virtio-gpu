@@ -96,11 +96,15 @@ create_context(void *opaque, int scanout_idx,
 {
 	(void)scanout_idx;
 	struct rvgpu_pr_state *state = (struct rvgpu_pr_state *)opaque;
-
-	printf("dl-debug[%s]\n", __func__);
-	return (virgl_renderer_gl_context)rvgpu_egl_create_context(
+	virgl_renderer_gl_context ctx = (virgl_renderer_gl_context)rvgpu_egl_create_context(
 		state->egl, params->major_ver, params->minor_ver,
 		params->shared);
+	printf("dl-debug[%s], params->shared[%d], ctx[%p], params->major_ver[%d] params->minor_ver[%d]\n", __func__, params->shared, ctx, params->major_ver, params->minor_ver);
+	if (ctx == NULL) {
+		printf("%s : failed to create context, error code is %08x\n", __func__, eglGetError());
+		assert(EGL_SUCCESS != eglGetError());
+	}
+	return ctx;
 }
 
 static void destroy_context(void *opaque, virgl_renderer_gl_context ctx)
@@ -117,7 +121,7 @@ static int make_context_current(void *opaque, int scanout_id,
 	(void)scanout_id;
 	struct rvgpu_pr_state *state = (struct rvgpu_pr_state *)opaque;
 
-	printf("dl-debug[%s]\n", __func__);
+	printf("dl-debug[%s], ctx[%p]\n", __func__, ctx);
 	return rvgpu_egl_make_context_current(state->egl, ctx);
 }
 
@@ -226,6 +230,7 @@ struct rvgpu_pr_state *rvgpu_pr_init(struct rvgpu_egl_state *e,
 	int ret, buf_size;
 	struct rvgpu_pr_state *p = calloc(1, sizeof(*p));
 
+	printf("dl-debug[%s], begin\n", __func__);
 	assert(p);
 
 	buf_size = INBUFSIZE;
@@ -233,7 +238,9 @@ struct rvgpu_pr_state *rvgpu_pr_init(struct rvgpu_egl_state *e,
 	p->pp = *params;
 	p->egl = e;
 
+	printf("dl-debug[%s], virgl_renderer_init begin\n", __func__);
 	ret = virgl_renderer_init(p, 0, &virgl_cbs);
+	printf("dl-debug[%s], virgl_renderer_init end\n", __func__);
 	assert(ret == 0);
 
 	ret = fcntl(0, F_GETFL);
@@ -251,6 +258,7 @@ struct rvgpu_pr_state *rvgpu_pr_init(struct rvgpu_egl_state *e,
 
 	p->res_socket = res_socket;
 
+	printf("dl-debug[%s], end\n", __func__);
 	return p;
 }
 

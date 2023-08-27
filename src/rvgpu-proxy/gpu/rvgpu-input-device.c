@@ -53,6 +53,7 @@ struct input_slot {
 struct input_device {
 	struct rvgpu_backend *backend;
 	short int revents[MAX_HOSTS];
+	// 鼠标键盘触屏事件
 	int mouse, keyboard, touch;
 	unsigned int slot;
 	struct input_slot slots[TOUCH_MAX_SLOTS];

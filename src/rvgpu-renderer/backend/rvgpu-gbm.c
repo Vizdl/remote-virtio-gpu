@@ -379,7 +379,7 @@ static const struct rvgpu_egl_callbacks gbm_callbacks = {
 
 static int open_restricted(const char *path, int flags, void *user_data)
 {
-	printf("dl-debug[%s]\n", __func__);
+	printf("dl-debug[%s],  path[%s]\n", __func__, path);
 	(void)user_data;
 	int fd = open(path, flags);
 
@@ -464,14 +464,14 @@ struct rvgpu_egl_state *rvgpu_gbm_init(const char *device, const char *seat,
 	g->egl.cb = &gbm_callbacks;
 
 	/* input initialization */
-	g->in = rvgpu_in_init(events_out);
+	// g->in = rvgpu_in_init(events_out);
 
 	// 各种事件监听?
-	g->udev = udev_new();
-	g->libin = libinput_udev_create_context(&interface, NULL, g->udev);
-	libinput_log_set_priority(g->libin, LIBINPUT_LOG_PRIORITY_DEBUG);
-	libinput_udev_assign_seat(g->libin, seat);
-	libinput_dispatch(g->libin);
+	// g->udev = udev_new();
+	// g->libin = libinput_udev_create_context(&interface, NULL, g->udev);
+	// libinput_log_set_priority(g->libin, LIBINPUT_LOG_PRIORITY_DEBUG);
+	// libinput_udev_assign_seat(g->libin, seat);
+	// libinput_dispatch(g->libin);
 
 	/* GBM doesn't support spawned windows */
 	g->egl.spawn_support = false;
