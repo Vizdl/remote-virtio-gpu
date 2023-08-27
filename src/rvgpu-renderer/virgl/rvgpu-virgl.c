@@ -42,10 +42,12 @@
 struct rvgpu_pr_state {
 	struct rvgpu_egl_state *egl;
 	struct rvgpu_pr_params pp;
+	// 用来存储与 proxy 交互数据的 buffer
 	uint8_t *buffer[2];
 	size_t buftotlen[2];
 	size_t bufcurlen[2];
 	size_t bufpos[2];
+	// fence 时用来回写的句柄
 	int res_socket;
 	atomic_uint fence_received, fence_sent;
 };
@@ -142,6 +144,7 @@ static struct virgl_renderer_callbacks virgl_cbs = {
 	.make_current = make_context_current,
 };
 
+// 每次读取都要保证上一次的空了
 static int rvgpu_pr_readbuf(struct rvgpu_pr_state *p, int stream)
 {
 	struct pollfd pfd[MAX_PFD];
@@ -152,6 +155,7 @@ static int rvgpu_pr_readbuf(struct rvgpu_pr_state *p, int stream)
 	pfd[0].fd = 0;
 
 	pfd[0].events = POLLIN;
+	// 获取事件的 fd
 	n = rvgpu_egl_prepare_events(p->egl, &pfd[1], MAX_PFD - 1);
 	if (p->fence_received == p->fence_sent)
 		timeout = -1;
@@ -168,6 +172,7 @@ static int rvgpu_pr_readbuf(struct rvgpu_pr_state *p, int stream)
 	if (pfd[0].revents & POLLIN) {
 		ssize_t n;
 
+		// 读取数据
 		n = read(pfd[0].fd, p->buffer[stream], p->buftotlen[stream]);
 		if (n <= 0)
 			return 0;
@@ -185,26 +190,28 @@ static int rvgpu_pr_readbuf(struct rvgpu_pr_state *p, int stream)
 static size_t rvgpu_pr_read(struct rvgpu_pr_state *p, void *buf, size_t size,
 			    size_t nmemb, int stream)
 {
-	size_t offset = 0u;
-	size_t total = size * nmemb;
-
+	size_t offset = 0u; 			// 当前拷贝相对 buf 的偏移量
+	size_t total = size * nmemb; 	// 当前所需要拷贝的总量
+	// 
 	while (offset < total) {
+		// 计算这次可拷贝的数据
 		size_t avail = p->bufcurlen[stream] - p->bufpos[stream];
-
 		if (avail > (total - offset))
 			avail = (total - offset);
 
 		if (buf) {
-			memcpy((char *)buf + offset,
-			       &p->buffer[stream][p->bufpos[stream]], avail);
+			memcpy((char *)buf + offset, &p->buffer[stream][p->bufpos[stream]], avail);
 		}
+		// 更新偏移量
 		offset += avail;
 		p->bufpos[stream] += avail;
+		// 如若 buf 满了,则退出
 		if (offset == total)
 			break;
 
 		assert(p->bufpos[stream] == p->bufcurlen[stream]);
 		/* actually read from input now */
+		// 从 stream 里读取数据到 bufpos
 		if (!rvgpu_pr_readbuf(p, stream))
 			break;
 	}
@@ -481,7 +488,7 @@ unsigned int rvgpu_pr_dispatch(struct rvgpu_pr_state *p)
 
 	if (p->pp.capset)
 		dump_capset(p);
-
+	// 读取协议(命令有多长之类的信息)
 	while (rvgpu_pr_read(p, &uhdr, sizeof(uhdr), 1, COMMAND) == 1) {
 		struct iovec *piov;
 		union virtio_gpu_cmd r;
@@ -493,7 +500,7 @@ unsigned int rvgpu_pr_dispatch(struct rvgpu_pr_state *p)
 		memset(&r.hdr, 0, sizeof(r.hdr));
 		if (uhdr.size > sizeof(r))
 			errx(1, "Too long read (%u)", uhdr.size);
-
+		// 
 		ret = rvgpu_pr_read(p, &r, 1, uhdr.size, COMMAND);
 		if (ret != uhdr.size)
 			errx(1, "Too short read(%zu < %u)", ret, uhdr.size);

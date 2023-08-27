@@ -70,7 +70,7 @@ struct rvgpu_gbm_state {
 	struct rvgpu_egl_state egl;
 
 	/* Input handling */
-	struct rvgpu_input_state *in;
+	struct rvgpu_input_state *in; // 用来发送数据给 proxy ： touch 事件， keyboard 事件等
 	struct libinput *libin;
 	struct udev *udev;
 };
@@ -330,6 +330,7 @@ static void rvgpu_gbm_draw(struct rvgpu_egl_state *e, struct rvgpu_scanout *s,
 	g->current_fb = fb;
 }
 
+// 用于获取 proxy 的 socket fd
 static size_t rvgpu_gbm_prepare_events(struct rvgpu_egl_state *e, void *ev,
 				       size_t max)
 {
@@ -464,6 +465,8 @@ struct rvgpu_egl_state *rvgpu_gbm_init(const char *device, const char *seat,
 
 	/* input initialization */
 	g->in = rvgpu_in_init(events_out);
+
+	// 各种事件监听?
 	g->udev = udev_new();
 	g->libin = libinput_udev_create_context(&interface, NULL, g->udev);
 	libinput_log_set_priority(g->libin, LIBINPUT_LOG_PRIORITY_DEBUG);

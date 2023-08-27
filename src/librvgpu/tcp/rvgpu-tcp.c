@@ -331,6 +331,7 @@ void set_timer(int timerfd, unsigned int msec)
 
 void rvgpu_ctx_wait(struct ctx_priv *ctx, enum reset_state state)
 {
+	printf("dl-debug[%s]\n", __func__);
 	pthread_mutex_lock(&ctx->reset.lock);
 	while (ctx->reset.state != state)
 		pthread_cond_wait(&ctx->reset.cond, &ctx->reset.lock);
@@ -339,6 +340,7 @@ void rvgpu_ctx_wait(struct ctx_priv *ctx, enum reset_state state)
 
 void rvgpu_ctx_wakeup(struct ctx_priv *ctx)
 {
+	printf("dl-debug[%s]\n", __func__);
 	pthread_mutex_lock(&ctx->reset.lock);
 	pthread_cond_signal(&ctx->reset.cond);
 	pthread_mutex_unlock(&ctx->reset.lock);
@@ -809,6 +811,7 @@ void *thread_conn_tcp(void *arg)
 	struct poll_entries p_entry;
 	unsigned int pfd_count;
 	int devnull;
+	printf("dl-debug[%s]\n", __func__);
 
 	devnull = open("/dev/null", O_WRONLY);
 	assert(devnull != -1);
@@ -817,9 +820,10 @@ void *thread_conn_tcp(void *arg)
 		warnx("Scanouts hasn't been initialized. Exiting");
 		return NULL;
 	}
-
+	// 控制面
 	connect_hosts(ctx_priv->cmd, ctx_priv->cmd_count,
 		      conn_args->conn_tmt_s);
+	// 数据面
 	connect_hosts(ctx_priv->res, ctx_priv->res_count,
 		      conn_args->conn_tmt_s);
 

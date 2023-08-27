@@ -236,6 +236,7 @@ int rvgpu_init_ctx(struct rvgpu_backend *b, struct rvgpu_ctx_arguments ctx_args)
 	}
 
 	be->plugin_version = version;
+	// 初始化上下文
 	be->plugin_v1.ops.rvgpu_ctx_init(ctx, ctx_args, &backend_reset_state);
 
 	return 0;
@@ -282,7 +283,7 @@ struct rvgpu_backend *init_backend_rvgpu(struct host_conn *servers)
 		.reconn_intv_ms = servers->reconn_intv_ms,
 		.scanout_num = servers->host_cnt,
 	};
-
+	// 初始化上下文
 	if (rvgpu_init_ctx(rvgpu_be, ctx_args)) {
 		warnx("failed to init rvgpu ctx");
 		goto err_sym;
@@ -985,21 +986,22 @@ static void gpu_device_serve_ctrl(struct gpu_device *g)
 		}
 	}
 	kick += gpu_device_serve_fences(g);
+	// 从 lo 设备中获取数据
 	while (vqueue_get_request(g->lo_fd, &g->vq[0], &g->ctrl)) {
 		size_t resp_len = sizeof(resp.hdr);
 		union virtio_gpu_cmd r;
+		// 构造发给 renderer 的控制面数据包
 		struct rvgpu_header rhdr = {
 			.size = (uint32_t)iov_size(g->ctrl.r, g->ctrl.nr),
 			.idx = 0,
 			.flags = 0,
 		};
-
+		// 从控制队列中拷贝数据
 		copy_from_iov(g->ctrl.r, g->ctrl.nr, &r, sizeof(r));
-
+		// 构造回复信息
 		resp.hdr.flags = 0;
 		resp.hdr.fence_id = 0;
 		resp.hdr.type = sanity_check_gpu_ctrl(&r, rhdr.size, true);
-
 		if (resp.hdr.type == VIRTIO_GPU_RESP_OK_NODATA) {
 			size_t i;
 
@@ -1009,7 +1011,7 @@ static void gpu_device_serve_ctrl(struct gpu_device *g)
 				resp.hdr.ctx_id = r.hdr.ctx_id;
 				add_resp(g, &resp.hdr, &g->ctrl);
 			}
-
+			// 发送信息给 render
 			if (b->plugin_v1.ops.rvgpu_ctx_send(
 				    &b->plugin_v1.ctx, &rhdr, sizeof(rhdr))) {
 				warn("short write");
@@ -1025,7 +1027,7 @@ static void gpu_device_serve_ctrl(struct gpu_device *g)
 			}
 
 			/* command is sane, parse it */
-			
+			// 构造回复的信息
 			printf("dl-debug[%s], recv type[%08x]\n", __func__, r.hdr.type);
 			switch (r.hdr.type) {
 			case VIRTIO_GPU_CMD_GET_DISPLAY_INFO:
@@ -1197,7 +1199,7 @@ static void gpu_device_serve_cursor(struct gpu_device *g)
 				resp.fence_id = r.hdr.fence_id;
 				resp.ctx_id = r.hdr.ctx_id;
 			}
-
+			// 发送信息给 render
 			if (b->plugin_v1.ops.rvgpu_ctx_send(
 				    &b->plugin_v1.ctx, &rhdr, sizeof(rhdr))) {
 				warn("short write");

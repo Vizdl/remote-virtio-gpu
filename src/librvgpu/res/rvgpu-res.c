@@ -127,6 +127,7 @@ int rvgpu_ctx_transfer_to_host(struct rvgpu_ctx *ctx,
 	const unsigned int bpp = 4;
 	uint32_t stride;
 
+	printf("dl-debug[%s]\n", __func__);
 	if (res->info.target == 0) {
 		gpu_device_send_data(ctx, res->backing, res->nbacking,
 				     t->offset, t->w);
@@ -157,6 +158,7 @@ struct rvgpu_res *rvgpu_ctx_res_find(struct rvgpu_ctx *ctx,
 {
 	struct ctx_priv *ctx_priv = (struct ctx_priv *)ctx->priv;
 
+	printf("dl-debug[%s]\n", __func__);
 	return gpu_device_get_res(ctx_priv, resource_id);
 }
 
@@ -165,6 +167,7 @@ void rvgpu_ctx_res_destroy(struct rvgpu_ctx *ctx, uint32_t resource_id)
 	struct ctx_priv *ctx_priv = (struct ctx_priv *)ctx->priv;
 	struct rvgpu_res *res;
 
+	printf("dl-debug[%s]\n", __func__);
 	res = gpu_device_get_res(ctx_priv, resource_id);
 	if (res) {
 		LIST_REMOVE(res, entry);
@@ -183,6 +186,7 @@ int rvgpu_ctx_res_create(struct rvgpu_ctx *ctx,
 	struct ctx_priv *ctx_priv = (struct ctx_priv *)ctx->priv;
 	struct rvgpu_res *res;
 
+	printf("dl-debug[%s]\n", __func__);
 	res = calloc(1, sizeof(*res));
 	if (res == NULL)
 		return -1;

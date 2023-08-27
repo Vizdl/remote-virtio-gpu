@@ -37,6 +37,7 @@ int rvgpu_ctx_send(struct rvgpu_ctx *ctx, const void *buf, size_t len)
 {
 	struct ctx_priv *ctx_priv = (struct ctx_priv *)ctx->priv;
 
+	printf("dl-debug[%s]\n", __func__);
 	for (unsigned int i = 0; i < ctx_priv->cmd_count; i++) {
 		struct sc_priv *sc_priv =
 			(struct sc_priv *)ctx_priv->sc[i]->priv;
@@ -67,6 +68,7 @@ int rvgpu_recv_all(struct rvgpu_scanout *scanout, enum pipe_type p, void *buf,
 	struct sc_priv *sc_priv = (struct sc_priv *)scanout->priv;
 	size_t offset = 0;
 
+	printf("dl-debug[%s]\n", __func__);
 	if (!sc_priv->activated)
 		return -EBUSY;
 
@@ -92,6 +94,7 @@ int rvgpu_recv(struct rvgpu_scanout *scanout, enum pipe_type p, void *buf,
 {
 	struct sc_priv *sc_priv = (struct sc_priv *)scanout->priv;
 
+	printf("dl-debug[%s]\n", __func__);
 	if (!sc_priv->activated)
 		return -EBUSY;
 
@@ -103,6 +106,7 @@ int rvgpu_send(struct rvgpu_scanout *scanout, enum pipe_type p, const void *buf,
 {
 	struct sc_priv *sc_priv = (struct sc_priv *)scanout->priv;
 
+	printf("dl-debug[%s]\n", __func__);
 	if (!sc_priv->activated)
 		return -EBUSY;
 
@@ -122,6 +126,7 @@ int rvgpu_init(struct rvgpu_ctx *ctx, struct rvgpu_scanout *scanout,
 	struct sc_priv *sc_priv;
 	int rc;
 
+	printf("dl-debug[%s]\n", __func__);
 	sc_priv = (struct sc_priv *)calloc(1, sizeof(*sc_priv));
 	assert(sc_priv);
 
@@ -131,7 +136,7 @@ int rvgpu_init(struct rvgpu_ctx *ctx, struct rvgpu_scanout *scanout,
 	ctx_priv->sc[ctx_priv->inited_scanout_num] = scanout;
 
 	pthread_mutex_lock(&ctx_priv->lock);
-
+	// 初始化管道
 	rc = init_communic_pipes(scanout);
 	if (rc) {
 		perror("Failed to init communication pipes");
@@ -160,6 +165,7 @@ error:
 
 void rvgpu_destroy(struct rvgpu_ctx *ctx, struct rvgpu_scanout *scanout)
 {
+	printf("dl-debug[%s]\n", __func__);
 	if (scanout) {
 		free_communic_pipes(scanout);
 		free(scanout->priv);
@@ -171,6 +177,7 @@ void rvgpu_frontend_reset_state(struct rvgpu_ctx *ctx, enum reset_state state)
 {
 	struct ctx_priv *ctx_priv = (struct ctx_priv *)ctx->priv;
 
+	printf("dl-debug[%s]\n", __func__);
 	ctx_priv->reset.state = state;
 }
 
@@ -181,6 +188,7 @@ int rvgpu_ctx_poll(struct rvgpu_ctx *ctx, enum pipe_type p, int timeo,
 	struct pollfd pfd[MAX_HOSTS];
 	int ret = 0;
 
+	printf("dl-debug[%s]\n", __func__);
 	if (p == COMMAND) {
 		for (unsigned int i = 0; i < ctx_priv->cmd_count; i++) {
 			struct vgpu_host *cmd = &ctx_priv->cmd[i];
@@ -228,6 +236,7 @@ int rvgpu_ctx_init(struct rvgpu_ctx *ctx, struct rvgpu_ctx_arguments args,
 {
 	struct ctx_priv *ctx_priv =
 		(struct ctx_priv *)calloc(1, sizeof(*ctx_priv));
+	printf("dl-debug[%s]\n", __func__);
 	assert(ctx_priv);
 
 	pthread_mutexattr_t attr;
@@ -264,5 +273,6 @@ void rvgpu_ctx_destroy(struct rvgpu_ctx *ctx)
 {
 	struct ctx_priv *ctx_priv = (struct ctx_priv *)ctx->priv;
 
+	printf("dl-debug[%s]\n", __func__);
 	ctx_priv->interrupted = true;
 }
