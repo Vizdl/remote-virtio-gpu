@@ -51,16 +51,20 @@ struct rvgpu_gbm_state {
 	uint32_t connector;
 	drmModeCrtc *crtc;
 	drmModeModeInfo mode;
-
+	// 是否处于等待 gem bo 状态
 	bool flip_pending;
+	// 是否将 fb 设置到 crtc
 	bool mode_set;
+
 	struct gbm_device *gbm_device;
 	struct gbm_surface *gbm_surface;
-
+	// 上一次的 gbm_bo
 	struct gbm_bo *prev_bo;
+	// 上一次的 frame buffer
 	unsigned int prev_fb;
-
+	// 当前的 gbm_bo
 	struct gbm_bo *current_bo;
+	// 当前的 frame buffer
 	unsigned int current_fb;
 
 	/* TODO: Support multiple scanouts */
@@ -270,11 +274,12 @@ static void rvgpu_gbm_page_flip_handler(int fd, unsigned int sequence,
 	struct rvgpu_gbm_state *g = user_data;
 
 	g->flip_pending = false;
-
+	// 删除上一次的 gem bo
 	if (g->prev_bo) {
 		drmModeRmFB(g->gbm_fd, g->prev_fb);
 		gbm_surface_release_buffer(g->gbm_surface, g->prev_bo);
 	}
+	// 更新 gem bo
 	g->prev_bo = g->current_bo;
 	g->prev_fb = g->current_fb;
 
@@ -299,33 +304,49 @@ static void rvgpu_gbm_draw(struct rvgpu_egl_state *e, struct rvgpu_scanout *s,
 	unsigned int handle, stride;
 	
 	printf("dl-debug[%s]\n", __func__);
+	// 如若在等待
 	if (g->flip_pending)
 		return;
-
+	// 将当前显示结果后端缓存交换到 surface 绑定的前端来
 	eglSwapBuffers(e->dpy, s->surface);
-
+	// 获取前端缓存,创建 fb
 	bo = gbm_surface_lock_front_buffer(g->gbm_surface);
 	handle = gbm_bo_get_handle(bo).u32;
 	stride = gbm_bo_get_stride(bo);
 
 	drmModeAddFB(g->gbm_fd, s->window.w, s->window.h, 24, 32, stride,
 		     handle, &fb);
+
+	/**
+	 * 显示器有个刷新率的问题：比如一个显示器的刷新率是60Hz，也就是一秒可以播放60个帧缓冲。
+	 * 但更换帧缓冲只能在固定的一段称为VBLANK的时间窗口才行，否则会发生画面撕裂。
+	 * 显示器的同步就受这两个条件限制。
+	 * 故而在这里 : 
+	 * 1. 利用 drmModeSetCrtc 绑定 crtc 与 fb
+	 * 2. 利用 drmModePageFlip 去做延迟送显
+	 */
 	if (!g->mode_set) {
+		// 设置显示器显示的缓冲，这里当然也可以这样将组装好的帧缓冲拿去显示。
 		drmModeSetCrtc(g->gbm_fd, g->crtc->crtc_id, fb, 0, 0,
 			       &g->connector, 1, &g->mode);
 		g->mode_set = true;
 	} else {
+		// 将帧缓冲排队等待VBLANK的时候才更换，更换后发送一个事件，
+		// 显示服务器监听这个事件就知道更换完毕，就能重用换下来的帧缓冲，
+		// 并且调用drmModePageFlip()下发下一个帧缓冲。
 		int status = drmModePageFlip(g->gbm_fd, g->crtc->crtc_id, fb,
 					     DRM_MODE_PAGE_FLIP_EVENT, g);
 		if (status != 0) {
 			errno = -status;
-			warn("PageFlip failed");
+			warn("PageFlip failed\n");
 		} else {
 			g->flip_pending = true;
 		}
 		if (vsync)
 			drmHandleEvent(g->gbm_fd, &gbm_evctx);
 	}
+	// 这里是因为延迟送显,所以必须得上一次送先结束后才能释放该内存
+	// 先暂记一下,留着下一次再释放。
 	g->current_bo = bo;
 	g->current_fb = fb;
 }
@@ -339,9 +360,10 @@ static size_t rvgpu_gbm_prepare_events(struct rvgpu_egl_state *e, void *ev,
 	printf("dl-debug[%s]\n", __func__);
 	assert(max >= 2);
 	struct pollfd *fds = (struct pollfd *)ev;
-
+	// 将 drm 添加到事件 id 内
 	fds[0].fd = g->gbm_fd;
 	fds[0].events = POLLIN;
+	// 将输入事件添加到事件 id 内
 	fds[1].fd = libinput_get_fd(g->libin);
 	fds[1].events = POLLIN;
 	return 2u;
@@ -359,9 +381,10 @@ static void rvgpu_gbm_process_events(struct rvgpu_egl_state *e, const void *ev,
 	printf("dl-debug[%s]\n", __func__);
 	revents[0] = fds[0].revents;
 	revents[1] = fds[1].revents;
+	// 判断 gem 事件是否发生
 	if (revents[0])
 		drmHandleEvent(g->gbm_fd, &gbm_evctx);
-
+	// 判断输入事件是否发生
 	if (revents[1]) {
 		libinput_dispatch(g->libin);
 		rvgpu_gbm_input(g);
@@ -369,11 +392,13 @@ static void rvgpu_gbm_process_events(struct rvgpu_egl_state *e, const void *ev,
 }
 
 static const struct rvgpu_egl_callbacks gbm_callbacks = {
+	// 释放 gem,仅当链接断开时才会执行
 	.free = rvgpu_gbm_free,
 	.draw = rvgpu_gbm_draw,
 	.create_scanout = rvgpu_gbm_create_scanout,
-	// 事件处理
+	// 提供给外界事件源
 	.prepare_events = rvgpu_gbm_prepare_events,
+	// 判断事件是否执行发生,如若发生则处理
 	.process_events = rvgpu_gbm_process_events,
 };
 
@@ -406,6 +431,7 @@ struct rvgpu_egl_state *rvgpu_gbm_init(const char *device, const char *seat,
 	drmModeConnector *connector = NULL;
 	drmModeEncoder *encoder;
 
+	printf("dl-debug[%s], begin\n", __func__);
 	assert(g);
 	g->scanout_id = VIRTIO_GPU_MAX_SCANOUTS;
 
@@ -438,10 +464,12 @@ struct rvgpu_egl_state *rvgpu_gbm_init(const char *device, const char *seat,
 	      connector->connector_id, g->mode.hdisplay, g->mode.vdisplay,
 	      g->mode.vrefresh);
 
+	printf("dl-debug[%s], drmModeGetEncoder\n", __func__);
 	encoder = drmModeGetEncoder(g->gbm_fd, connector->encoder_id);
 	assert(encoder);
 	assert(encoder->crtc_id);
 
+	printf("dl-debug[%s], drmModeGetCrtc\n", __func__);
 	g->crtc = drmModeGetCrtc(g->gbm_fd, encoder->crtc_id);
 	assert(g->crtc);
 
@@ -450,11 +478,14 @@ struct rvgpu_egl_state *rvgpu_gbm_init(const char *device, const char *seat,
 	drmModeFreeResources(res);
 
 	/* GBM->EGL glue */
+	printf("dl-debug[%s], eglGetDisplay\n", __func__);
 	g->egl.dpy = eglGetDisplay(g->gbm_device);
 	assert(g->egl.dpy);
 
 	rvgpu_egl_init_context(&g->egl);
 
+	printf("dl-debug[%s], gbm_surface_create\n", __func__);
+	// 每个连接都只有一个渲染表面?
 	g->gbm_surface =
 		gbm_surface_create(g->gbm_device, g->mode.hdisplay,
 				   g->mode.vdisplay, GBM_BO_FORMAT_XRGB8888,
@@ -475,5 +506,6 @@ struct rvgpu_egl_state *rvgpu_gbm_init(const char *device, const char *seat,
 
 	/* GBM doesn't support spawned windows */
 	g->egl.spawn_support = false;
+	printf("dl-debug[%s], end\n", __func__);
 	return &g->egl;
 }
